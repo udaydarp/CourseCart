@@ -1,26 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-Spyder Editor
-"""
+
 import numpy as np
 import nltk
 from nltk.tokenize import sent_tokenize
 import pandas as pd
 from nltk.corpus import stopwords
-from datetime import datetime
+#from datetime import datetime
 from nltk.stem.lancaster import LancasterStemmer
 import pyodbc
+import re
+from geotext import GeoText
 
 stemmer = LancasterStemmer()
 conn = pyodbc.connect("Driver={SQL Server Native Client 11.0}; Server=DESKTOP-UDAY-DE\SQLEXPRESS; Database=CourseCart; Trusted_Connection=yes;")
-
-#from nltk.corpus import wordnet as wn
-
-# nltk.download('corpora/wordnet')
-#nltk.download()
-
-import re
-from geotext import GeoText
 
 ###################################################################################
 # Sentence Bank and Intent identification
@@ -327,7 +318,7 @@ def getIntent(inputText):
         if score > high_score:
             high_class = c
             high_score = score
-            
+
     intent.intentType = high_class
     intent.response = getIntentResponse(intent.intentType)
     #intent.response = '<<Your intent is: '+high_class+'>>'
@@ -378,12 +369,12 @@ def identifyIntents (response):
     lstIntents = []
     #Split the response into distinct sentences
     lstParts = splitText(response)
-    
+
     # For each sentence identify the intent
     for part in lstParts:
         intent = getIntent(part)
         lstIntents.append(intent)
-    # 
+    #
     return lstIntents
 
 ##################################################
@@ -411,7 +402,7 @@ class Entity(object):
     showacadreqs = False
     showprogramtype = False
     outputColumns = '\'Course\''
-    
+
     def __init__(self):
         self.amount = ''
         self.amountCompOp = '=='
@@ -434,7 +425,7 @@ class Entity(object):
         self.showacadreqs = False
         self.showprogramtype = False
         self.outputColumns = '\'Course\''
-        
+
     def dump(self):
         print("*************************************************")
         print("Entity object:")
@@ -460,7 +451,7 @@ class Entity(object):
         print("ShowAcadReqs:", self.showacadreqs)
         print("OutputColumns:", self.outputColumns)
         print("*************************************************")
-    
+
 def to_number(s):
     try:
         s1 = float(s)
@@ -505,7 +496,7 @@ def getNumericMonth(month):
 def getComparisonOperator(notString, prefixString):
     notString = notString.lower()
     prefixString = prefixString.lower()
-    
+
     if prefixString == 'before' or prefixString == 'earlier than' or prefixString == 'less than' or prefixString == 'under' or prefixString == 'below':
         if notString == 'not':
             return '>'
@@ -529,7 +520,7 @@ def findDate(inpString):
     year = ''
     notString = ''
     prefixString = ''
-    
+
     # check for dmy format
     sepPat = '[ \./-]'
     dayPat = '[1-9]|[0][1-9]|[1-2][0-9]|[3][0-1]'
@@ -537,15 +528,15 @@ def findDate(inpString):
     yearPat = '\d{4}'
     notPat = 'not'
     prefixPat = 'before|after|by|on|earlier than|later than'
-    
+
     datePattern = re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*('+dayPat+')'+sepPat+'('+monthPat+')'+sepPat+'('+yearPat+'))')
     validDate = datePattern.findall(inpString)
-    
+
     if (validDate == None or validDate == []):
         # check for ymd format
         datePattern = re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*('+yearPat+')'+sepPat+'('+monthPat+')'+sepPat+'('+dayPat+'))')
         validDate = datePattern.findall(inpString)
-    
+
         if (validDate == None or validDate == []):
             # check for month year format
             datePattern = re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*('+monthPat+')'+sepPat+'('+yearPat+'))')
@@ -571,10 +562,10 @@ def findDate(inpString):
         day = validDate[0][3]
         month = validDate[0][4]
         year = validDate[0][5]
-        
+
     if (validDate == None or validDate == []):
         return None, None
-    else:        
+    else:
         #return date in y-m-d format
         numMonth = getNumericMonth(month)
         return getComparisonOperator(notString, prefixString), (year + "-" + numMonth + "-" + day)
@@ -593,27 +584,27 @@ def findAmountAndCurrency(inpString):
     notPat = 'not'
     prefixPat = 'less than|more than|under|above|below'
     amountPat = '((?:[A-Z]{3}|[$₹]|Rs) +(?:\d+(?:[.,]?\d*)*))'
-    
+
     # Return values
     currency = ''
     amount = ''
     compOperator = ''
-    
+
     amountPattern = re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*'+amountPat+')')
     amountValue = amountPattern.findall(inpString)
-    
+
     if amountValue == None or amountValue == [] or amountValue == '':
         amountPat = '((?:(?:\d+(?:[.,]?\d*)*) +[A-Z]{3}|[$₹]|Rs))'
         amountPattern = re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*'+amountPat+')')
         amountValue = amountPattern.findall(inpString)
-        
+
         if amountValue == None or amountValue == [] or amountValue == '':
             return None, None, None
         else:
             notString = amountValue[0][1]
             prefixString = amountValue[0][2]
             compOperator = getComparisonOperator(notString, prefixString)
-            
+
             amount = amountValue[0][3].split()[0]
             currency = amountValue[0][3].split()[1]
     else:
@@ -621,10 +612,10 @@ def findAmountAndCurrency(inpString):
         notString = amountValue[0][1]
         prefixString = amountValue[0][2]
         compOperator = getComparisonOperator(notString, prefixString)
-        
+
         amount = amountValue[0][3].split()[1]
         currency = amountValue[0][3].split()[0]
-    
+
     #print ("notString:", notString, "prefixString:", prefixString, "compOperator:", compOperator,"amount:", amount)
     return compOperator, amount, currency
 
@@ -637,7 +628,7 @@ def findCurrency(inpString):
     #print(currency)
     if currency == None or currency == []:
         return None
-    
+
     return currency[0]
 
 ###################################################################################
@@ -649,31 +640,31 @@ def findDuration(inpString):
     prefixPat = 'more than|greater than|less than'
     numDurationPat = '\d+'
     unitDurationPat = 'month|year|day'
-    
+
     durationPattern=re.compile(r'(('+notPat+')*[ ]*('+prefixPat+')*[ ]*('+numDurationPat+')[ ]*('+unitDurationPat+'))')
     duration=durationPattern.findall(inpString.lower())
-    
+
     if duration == None or duration == '' or duration == []:
         return None, None
-    
+
     notString = duration[0][1]
     prefixString = duration[0][2]
     numValue = duration[0][3]
     unitValue = duration[0][4]
-    
+
     #print (duration, "|", notString, "|", prefixString, "|", numValue, "|", unitValue)
-    
+
     compOperator = getComparisonOperator(notString, prefixString)
-    
+
     durationInDays = int(numValue)
-    
+
     if unitValue.lower() == 'day':
         durationInDays = durationInDays
     elif unitValue.lower() == 'month':
         durationInDays = durationInDays * 30
     else:
         durationInDays = durationInDays * 360
-        
+
     return compOperator, durationInDays
 
 ###################################################################################
@@ -682,48 +673,48 @@ def findDuration(inpString):
 def findCitiesAndCountries(inpString):
     cityFound = False
     countryFound = False
-    
+
     locCities = []
     locCountries = []
 
     loc = GeoText(inpString)
-        
+
     if loc != None:
-        if loc.cities != None and loc.cities != []:                
+        if loc.cities != None and loc.cities != []:
             for city in loc.cities:
                 if city.lower() == 'university':
                     continue
                 locCities.append(city)
                 cityFound = True
-            
+
         if loc.countries != None and loc.countries != []:
             for country in loc.countries:
                 locCountries.append(country)
                 countryFound = True
-    
+
     if not cityFound or not countryFound:
         # split string into individual words, make camel case and check again
         stop_words = set(stopwords.words('english'))
         stop_words.remove('not')
-        
+
         for w in inpString.split():
             w = w.capitalize()
             if not w.lower() in stop_words:
                 loc = GeoText(w)
-                
+
                 if loc != None:
                     if cityFound == False and loc.cities != None and loc.cities != []:
-    
+
                         for city in loc.cities:
                             if city.lower() == 'university':
                                 continue
                             locCities.append(city)
-                        
+
                     if countryFound == False and loc.countries != None and loc.countries != []:
-                        
+
                         for country in loc.countries:
                             locCountries.append(country)
-    
+
     return locCities, locCountries
 
 ##################################################################
@@ -736,9 +727,9 @@ def findRanking(inpString):
     numRank2 = ''
     rankPattern = re.compile(r'(((top)+[ ]*([\d]*)(rated|ranked|ranking|rank)*)|((ranking|ranked|rated|rank)+[A-Za-z ]*([\d]*)))')
     #rankPattern = re.compile(r'([A-Za-z(?!top)]*)')
-    
+
     rank = rankPattern.findall(inpString)
-    
+
     #print(rank)
     if rank == None or rank == []:
         return None
@@ -751,12 +742,12 @@ def findRanking(inpString):
         else:
             strRank = rank[0][6]
             numRank2 = rank[0][7]
-            
+
         if topString != None and topString != '':
                 if strRank != None and strRank != '':
                     if numRank1 == None or numRank1 == '' or numRank1 == []:
                         numRank1 = 10 # top-10
-                    
+
         if numRank1 != None and numRank1 != '' and numRank1 != []:
             return numRank1
         else:
@@ -767,7 +758,7 @@ def findRanking(inpString):
 #findRanking("i am looking for top ranked courses")
 #findRanking("top 20 rank")
 #findRanking(" ranking less than 50")
-        
+
 ###################################################################################
 # Global variables. Reference as "global" in the methods that you use them
 ###################################################################################
@@ -786,7 +777,7 @@ row_map = []
 ###################################################################################
 # Method to initialize the global variables on every search error to reset the data
 ###################################################################################
-def clearEntities():    
+def clearEntities():
     global entity
     global prev_entity
     global course_vocab
@@ -822,12 +813,12 @@ def saveEntity():
 ##################################################################
 # Method to build dataset query
 ##################################################################
-def buildQuery():    
+def buildQuery():
     global entity
-    
+
     andText = ''
     filterQuery = ''
-    
+
     if entity.cities != None and entity.cities != '':
         filterQuery = filterQuery + andText + '(df["City"].str.lower().isin (['
         filterQuery = filterQuery + entity.cities
@@ -836,21 +827,21 @@ def buildQuery():
         entity.showcity = True
         if showdebug:
             print("DBG:buildQuery:showcity:", entity.showcity)
-    
+
     if entity.countries != None and entity.countries != '':
         filterQuery = filterQuery + andText + '(df["Country"].str.lower().isin (['
         filterQuery = filterQuery + entity.countries
         filterQuery = filterQuery + ']))'
         andText = ' & '
         entity.showcountry = True
-        
+
     if (entity.date != None and entity.date != ''):
         filterQuery = filterQuery + andText + '(df["start_date_conv"] ' + entity.dateCompOp + '"' + entity.date + '")'
         andText = ' & '
         entity.showdate = True
-    
+
     if (entity.amount != None and entity.amount != [] and entity.amount != ''):
-        filterQuery = filterQuery + andText + '(df["Fee"] ' + entity.amountCompOp + ' ' + entity.amount + ')'        
+        filterQuery = filterQuery + andText + '(df["Fee"] ' + entity.amountCompOp + ' ' + entity.amount + ')'
         andText = ' & '
         entity.showfees = True
 
@@ -860,7 +851,7 @@ def buildQuery():
         filterQuery = filterQuery + andText + '(df["Rank"] < '+ str(entity.rank) + ')'
         andText = ' & '
         entity.showrank = True
-    
+
     if (entity.currency != None and entity.currency != [] and entity.currency != ''):
         filterQuery = filterQuery + andText + '(df["Currency"] == "' + entity.currency + '")'
         andText = ' & '
@@ -870,12 +861,12 @@ def buildQuery():
         filterQuery = filterQuery + andText + '(df["durationInDays"] ' + entity.durationCompOp + ' ' + str(entity.duration) + ')'
         andText = ' & '
         entity.showduration = True
-    
+
     setOutputColumns()
-    
+
     if showdebug:
         print("DBG:buildQuery:filterQuery:",filterQuery)
-        
+
     return filterQuery
 
 ###################################################################################
@@ -883,13 +874,13 @@ def buildQuery():
 ###################################################################################
 def findEntities(inpString):
     global entity
-        
+
     (locCities, locCountries) = findCitiesAndCountries(inpString)
-        
+
     if locCities != None and locCities != []:
         comma = ''
         entity.cities = ''
-            
+
         for city in locCities:
             #entity.cities = entity.cities + comma + '"' + city.lower() + '"'
             entity.cities = entity.cities + comma + city.lower()
@@ -897,11 +888,11 @@ def findEntities(inpString):
             entity.showcity = True
             if showdebug == True:
                 print("DBG:FindEntities:showcity:", entity.showcity)
-            
+
     if locCountries != None and locCountries != []:
         comma = ''
         entity.countries = ''
-        
+
         for country in locCountries:
             #entity.countries = entity.countries + comma + '"' + country.lower() + '"'
             entity.countries = entity.countries + comma + country.lower()
@@ -913,24 +904,24 @@ def findEntities(inpString):
         entity.date = localDate
         entity.dateCompOp = locDateCompOp
         entity.showdate = True
-    
+
     (localAmountCompOp, localAmount, localCurrency) = findAmountAndCurrency(inpString)
     if (localAmount != None and localAmount != []):
         entity.amount = localAmount
         entity.amountCompOp = localAmountCompOp
         entity.currency = localCurrency
         entity.showfees = True
-        
+
     locRank = findRanking(inpString)
     if locRank != None and locRank != [] and locRank != '':
         entity.rank = locRank
         entity.showrank = True
-        
+
     #localCurrency = findCurrency(inpString)
     #if (localCurrency != None and localCurrency != []):
     #    entity.currency = localCurrency
     #    entity.showfees = True
-        
+
     (localDurationCompOp, localDuration) = findDuration(inpString)
     if (localDuration != None and localDuration != []):
         entity.duration = localDuration
@@ -938,17 +929,17 @@ def findEntities(inpString):
         entity.showduration = True
 
     filterQuery = buildQuery()
-    
+
     if showdebug:
         print("DBG:findEntities:filterQuery:",filterQuery)
-        
+
     return filterQuery
 
 def getNouns(inpString):
     global nn_words
     text = nltk.word_tokenize(inpString)
     pos = nltk.pos_tag(text)
-    
+
     for p in pos:
         if p[1] == 'NN' or p[1] == 'NNP' or p[1] == 'NNS' or p[1] == 'NNPS':
             word = p[0].lower()
@@ -956,10 +947,10 @@ def getNouns(inpString):
             if not IsWordIdentifiedAsLoc(word) and not IsWordAmongstSkipList(word):
                 word = stemmer.stem(word)
                 nn_words.append(word)
-    
+
     # get unique list
     nn_words = list(set(nn_words))
-    
+
     if showdebug:
         print("DBG:NN Word list:", nn_words)
     return nn_words
@@ -968,46 +959,46 @@ def replaceBlanksByNone(entity):
     localEntity = entity
     if (localEntity.cities == ''):
         localEntity.cities = None
-    
+
     if (localEntity.countries == ''):
         localEntity.countries = None
-    
+
     if (localEntity.date == ''):
         localEntity.date = None
-        
+
     if (localEntity.amount == ''):
         localEntity.amount = None
-    
+
     if (localEntity.currency == ''):
         localEntity.currency = None
-    
+
     if (localEntity.rank == ''):
         localEntity.rank = None
-    
+
     if (localEntity.duration == ''):
         localEntity.duration = None
-        
+
     return localEntity
-        
+
 def findCourses(inpString):
     global entity
-    
+
     listNouns = getNouns(inpString)
     spaceDelimitedNouns = ''
     for w in listNouns:
         spaceDelimitedNouns = spaceDelimitedNouns + ' ' + w.lower()
-    
+
     if (spaceDelimitedNouns == ''):
         spaceDelimitedNouns = None
-        
+
     locEntity = replaceBlanksByNone(entity)
-    
+
     if showdebug:
         print("Entity values:", locEntity.cities, locEntity.countries, locEntity.date,
               locEntity.dateCompOp, locEntity.amount, locEntity.amountCompOp,
               locEntity.currency, locEntity.rank, locEntity.duration, locEntity.durationCompOp,
               spaceDelimitedNouns)
-    
+
     cursor = conn.cursor()
     cursor.execute("execute dbo.spGetCourses \
                    @Cities = ?, \
@@ -1021,21 +1012,21 @@ def findCourses(inpString):
                    @DurationInDays = ?, \
                    @DurationCompOp = ?, \
                    @CourseSearchText = ?, \
-                   @numCourses = ?", 
-                   locEntity.cities, locEntity.countries, 
-                   #None, None, 
+                   @numCourses = ?",
+                   locEntity.cities, locEntity.countries,
+                   #None, None,
                    locEntity.date, locEntity.dateCompOp,
                    #None, None,
                    locEntity.amount, locEntity.amountCompOp,
-                   #None, None, 
-                   locEntity.currency, locEntity.rank, 
+                   #None, None,
+                   locEntity.currency, locEntity.rank,
                    #None, None,
                    entity.duration, entity.durationCompOp,
-                   spaceDelimitedNouns, 10)
+                   spaceDelimitedNouns, 100)
     courseRows = cursor.fetchall()
     cursor.close()
     courses = []
-    for courseRowData in courseRows:    
+    for courseRowData in courseRows:
         course = {}
         course["CourseId"] = courseRowData[0]
         course["CourseName"] = courseRowData[1]
@@ -1051,7 +1042,8 @@ def findCourses(inpString):
         course["Structure"] = courseRowData[11]
         course["Eligibility"] = courseRowData[12]
         course["URL"] = courseRowData[13]
-        
+        course["University"] = courseRowData[14]
+
         courses.append(course)
 
     return courses
@@ -1089,36 +1081,36 @@ def printCourses():
 
 def setOutputColumns():
     global entity
-    
+
     entity.outputColumns = '\'Course\''
-    
+
     if entity.showcity == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'City\''
-    
+
     if entity.showcountry == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Country\''
-        
+
     if entity.showduration == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Duration\''
-        
+
     if entity.showdate == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'StartDate\''
-    
+
     if entity.showacadreqs == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'AcademicRequirements\', \'IELTSScore\''
-    
+
     if entity.showfees == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Currency\',\'Fee\''
-        
+
     if entity.showuniv == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'University\''
-        
+
     if entity.showstructure == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Structure\''
-        
+
     if entity.showrank == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Rank\''
-    
+
     if entity.showprogramtype == True:
         entity.outputColumns = entity.outputColumns + ',' + '\'Program\''
 
@@ -1128,49 +1120,49 @@ def setOutputColumns():
 def displayResults():
     global entity
     global bot_name
-        
+
     results=''
     filterQueryToExecute = ''
 
     try:
         filterQuery = buildQuery()
-        
+
         if showdebug:
             print("DBG:displayResults:filterQuery:",filterQuery)
-                
+
         setOutputColumns()
-        
+
         if filterQuery != None and filterQuery != '':
             filterQueryToExecute = ''
             filterQueryToExecute = 'df['+filterQuery+']'
-                    
+
             if showdebug:
                 print("DBG:displayResults:filterQueryToExecute:",filterQueryToExecute)
-            
+
             results = eval(filterQueryToExecute)
-            
+
             if (len(results) == 0):
                 print(bot_name, ": Sorry I did not find any courses matching your search :(. Try searching on another value")
                 clearEntities()
             else:
                 dataIndexSorted = findRelevantResults("123", results)
-                
+
                 if dataIndexSorted.empty:
                     filterQueryToExecute = 'df['+filterQuery+'][['+entity.outputColumns+']]'
                     if showdebug:
                         print("DBG:displayResults:filterQueryToExecute:",filterQueryToExecute)
-                
+
                     results = eval(filterQueryToExecute)
-                    
+
                     size = len(results)
                     print(bot_name,": I found ", size, " courses.")
-                    
+
                     if (size > 5):
                         print(bot_name,": Displaying top 5 records:")
                         size = 5
                     else:
                         print(bot_name,": Displaying complete list:")
-                        
+
                     print("===================================================")
                     print(results[0:size])
                     print("===================================================")
@@ -1181,18 +1173,18 @@ def displayResults():
 
                     size = len(dataIndexSorted)
                     print(bot_name,": I found ", size, " courses.")
-                    
+
                     if (size > 5):
                         print(bot_name,": Displaying top 5 records, sorted by relevance")
                         size = 5
                     else:
                         print(bot_name,": Displaying complete list, sorted by relevance:")
-                    
+
                     filterQueryToExecute = 'results.loc[np.array(dataIndexSorted["index"])[0:'+str(size)+']][['+entity.outputColumns+']]'
-                    
+
                     if showdebug:
                         print("DBG:displayResults:filterQueryToExecute:", filterQueryToExecute)
-                    
+
                     results_final = eval(filterQueryToExecute)
                     print("===================================================")
                     print(results_final)
@@ -1205,13 +1197,13 @@ def displayResults():
 # Function to find cosine similarity between two sentences
 #####################################################################
 def cos_sim(a, b):
-    """Takes 2 vectors a, b and returns the cosine similarity according 
+    """Takes 2 vectors a, b and returns the cosine similarity according
     to the definition of the dot product
     """
     dot_product = np.dot(a, b)
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
-    
+
     if norm_a == 0 or norm_b == 0:
         return 0
     else:
@@ -1224,12 +1216,12 @@ def buildCourseVocabulary(data):
     global course_vocab
     global df_course_list
     global row_map
-    
+
     # Create unique list of data words
     course_vocab = []
     df_course_list = []
     row_map = []
-    
+
     counter = 0
     for (idx, d) in data.iterrows():
         row = {}
@@ -1242,7 +1234,7 @@ def buildCourseVocabulary(data):
                 continue;
             else:
                 row[w] = 1
-    
+
         pn = d["Course"]
         words = pn.split()
         for w in words:
@@ -1252,7 +1244,7 @@ def buildCourseVocabulary(data):
                 continue;
             else:
                 row[w] = 1
-    
+
         pt = d["Program"]
         words = pt.split()
         for w in words:
@@ -1262,7 +1254,7 @@ def buildCourseVocabulary(data):
                 continue;
             else:
                 row[w] = 1
-        
+
 # Uncomment below to include structure column in the list
 #        st = d["structure"]
 #        #print("DBG:st:", st)
@@ -1276,19 +1268,19 @@ def buildCourseVocabulary(data):
 #                        continue;
 #                    else:
 #                        row[w1] = 1
-        
+
         df_course_list.append(row)
         row_map.append({'data_indx':idx, 'clist_indx':counter})
         counter = counter + 1
-    
+
     course_vocab = list(set(course_vocab)) # unique list
-    
+
 ############################################################################
 # Function to return data index for the corresponding index from courselist
 ############################################################################
 def get_data_index(clist_idx):
     global row_map
-    
+
     row = next((row for row in row_map if row['clist_indx'] == clist_idx), None)
     return row['data_indx']
 
@@ -1300,7 +1292,7 @@ def buildScoreMatrix(data):
     global course_vocab
     global df_course_matrix
     global df_course_list
-    
+
     # Create matrix of presence or absence of a word per row of data
     df_course_matrix = []
     for d in df_course_list:
@@ -1322,7 +1314,7 @@ def buildScoreMatrix(data):
 ##############################################################################
 def IsWordIdentifiedAsLoc(word):
     global entity
-    
+
     if (entity.cities != None and word.lower() in entity.cities) or (entity.countries != None and word.lower() in entity.countries):
         return True
     else:
@@ -1333,12 +1325,12 @@ def IsWordIdentifiedAsLoc(word):
 ####################################################################################
 def IsWordAmongstSkipList(word):
     global entity
-    
+
     if word.lower() in ['course','courses','program','programs','list']:
         return True
     else:
         return False
-    
+
 ##########################################################################
 # Create Score matrix for a sentence with the presence (1) or absence (0)
 # of words in the vocabulary
@@ -1347,11 +1339,11 @@ def getSentenceMatrix(sentence):
     global course_vocab
     global nn_words
     global showdebug
-    
+
     # tokenize the sentence and create the matrix
     text = nltk.word_tokenize(sentence)
     pos = nltk.pos_tag(text)
-    
+
     words=nn_words # Take from the already existing list
     for p in pos:
         if p[1] == 'NN' or p[1] == 'NNP' or p[1] == 'NNS' or p[1] == 'NNPS':
@@ -1360,15 +1352,15 @@ def getSentenceMatrix(sentence):
             if not IsWordIdentifiedAsLoc(word) and not IsWordAmongstSkipList(word):
                 words.append(p[0])
                 nn_words.append(p[0])
-    
+
     # get unique list
     nn_words = list(set(nn_words))
-    
+
     if showdebug:
         print("DBG:NN Word list:", nn_words)
-        
+
     row = []
-    
+
     for v in course_vocab:
         vfound = False
         for w in words:
@@ -1390,21 +1382,21 @@ def findRelevantResults(sentence, data):
     global df_course_matrix
     global showdebug
     global bot_name
-    
+
     # call method to build the vocabulary for course names
     buildCourseVocabulary(data)
     buildScoreMatrix(data)
-    
+
     # create matrix for the sentence
     row = getSentenceMatrix(sentence)
     if row == None or row == []:
         return data # No course name in search text
-    
+
     row_array = np.array(row)
-    
+
     data_cos = pd.DataFrame(data=None, columns=('index','cosine'))
     matchFound = False
-    
+
     for (idx, d) in enumerate(df_course_matrix):
         d_array = np.array(d)
         cosine = cos_sim(row_array, d_array)
@@ -1414,7 +1406,7 @@ def findRelevantResults(sentence, data):
 
     if matchFound:
         data_cos = data_cos.sort_values(by="cosine", ascending = False)
-    
+
     if showdebug:
         print ("\n")
         print(bot_name, ": Data with cosine scores:")
@@ -1427,11 +1419,11 @@ def findRelevantResults(sentence, data):
 # Main chat program: This is the one that will process user inputs and respond!
 ##################################################################################
 # Startup
-print("***************************************************")
-print("***                ", bot_name, "                   ***")
-print("***                 STARTING UP                 ***")
-print("***************************************************")
-print("") # blank line
+#print("***************************************************")
+#print("***                ", bot_name, "                   ***")
+#print("***                 STARTING UP                 ***")
+#print("***************************************************")
+#print("") # blank line
 # Initialization
 result = None
 stopSearch = False
@@ -1469,10 +1461,10 @@ stopSearch = False
 # Start the endless interaction!
 #while (True):
 #    response=input("You: ")
-    
+
 #    lstIntents = identifyIntents(response)
 #    lstIntentsSize = len(lstIntents)
-    
+
 #    for intent in lstIntents:
 #        if intent.intentType == 'greeting':
 #            print ("\n")
@@ -1483,14 +1475,14 @@ stopSearch = False
 #            print (bot_name, ": ", intent.response)
 #            saveEntity()
 #            filterQuery = findEntities(response)
-            
+
 #            if showdebug:
 #                    print ("DBG:Main:filterQuery:",filterQuery)
-            
+
 #            listCourses = findCourses(response)
-            
+
 #            resultSize = len(listCourses)
-                    
+
 #            if resultSize > 50:
 #                print (bot_name, ": I found ", resultSize, " courses matching your search.")
 #                print (bot_name, ": Tell me the program names or types or location or university you want to look for.")
@@ -1499,7 +1491,7 @@ stopSearch = False
 #                saveEntity()
 #            else:
 #                print(bot_name, ": I found ",resultSize," courses matching your search. Do you want to view them or filter them further?")
-    
+
 #        elif intent.intentType == 'view':
 #            print ("\n")
 #            print (bot_name, ": ", intent.response)
@@ -1592,7 +1584,7 @@ stopSearch = False
 #        else:
 #            print ("\n")
 #            print (bot_name, ": I cant understand your intent :(! Please have a human communicate with me!")
-#    
+#
 #    if (stopSearch):
 #        break
 # End while
@@ -1605,7 +1597,7 @@ stopSearch = False
 #print("***                ", bot_name, "                   ***")
 #print("***                 SHUTTING DOWN               ***")
 #print("***************************************************")
-                
+
 ###################################################################################
 # This section below is to play around with the code. Keep this commented once done.
 #df[(df["cityName"].isin (["Mumbai"])) & (df["durationInDays"] == 540)][['program_name','durationInDays','cityName','duration']]
